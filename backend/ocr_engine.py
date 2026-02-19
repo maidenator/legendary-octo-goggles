@@ -1,216 +1,255 @@
 """
 Ayahay SmartScan - OCR Engine (The Brain)
-Processes images to extract and validate container IDs using OpenCV and PyTesseract.
+Processes scanned PDFs and images to extract and validate shipping container IDs.
+
+Supports:
+  - PDF input (via pymupdf — no Poppler binary required)
+  - JPEG/PNG image input
+  - Adaptive thresholding for documents with shadows/uneven lighting
+  - Container ID format: ABCD1234567 or MSCU 123456-7
 """
 
-import cv2
-import pytesseract
 import re
 import platform
+import warnings
 from pathlib import Path
 from typing import Optional, Dict, List
+
+try:
+    import cv2
+    import numpy as np
+except Exception as e:
+    warnings.warn(f"OpenCV unavailable: {e}. Install opencv-python-headless.")
+    cv2 = None
+    np = None
+
+try:
+    import pytesseract
+except Exception as e:
+    warnings.warn(f"pytesseract unavailable: {e}. Install pytesseract.")
+    pytesseract = None
+
+try:
+    import fitz  # pymupdf
+except Exception as e:
+    warnings.warn(f"pymupdf unavailable: {e}. Install pymupdf for PDF support.")
+    fitz = None
+
 from stdnum import iso6346
 
-# Windows-specific Tesseract path configuration
-if platform.system() == 'Windows':
-    # Common Tesseract installation paths on Windows
-    possible_paths = [
-        r'C:\Program Files\Tesseract-OCR\tesseract.exe',
-        r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
-    ]
-    for path in possible_paths:
-        if Path(path).exists():
-            pytesseract.pytesseract.tesseract_cmd = path
+# ---------------------------------------------------------------------------
+# Windows Tesseract binary path
+# ---------------------------------------------------------------------------
+if platform.system() == "Windows" and pytesseract is not None:
+    for _path in [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    ]:
+        if Path(_path).exists():
+            pytesseract.pytesseract.tesseract_cmd = _path
             break
 
 
-def preprocess_image(image_path: Path) -> cv2.Mat:
-    """
-    Preprocess image for better OCR accuracy.
-    Converts to grayscale and applies thresholding.
-    
-    Args:
-        image_path: Path to the image file
-        
-    Returns:
-        Preprocessed OpenCV image matrix
-    """
-    # Read image
-    img = cv2.imread(str(image_path))
-    
-    if img is None:
-        raise ValueError(f"Could not read image from {image_path}")
-    
-    # Convert to grayscale
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-    # Apply thresholding to get binary image
-    # THRESH_BINARY + OTSU for automatic threshold calculation
-    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    
-    return thresh
+# ---------------------------------------------------------------------------
+# Container ID regex
+# Matches:  MSCU1234567  |  MSCU 123456-7  |  MSCU123456-7  |  MSCU 1234567
+# ---------------------------------------------------------------------------
+_CONTAINER_ID_PATTERN = re.compile(r"[A-Z]{4}\s?\d{6}-?\d")
 
 
-def extract_text(image_path: Path) -> str:
-    """
-    Extract text from image using PyTesseract OCR.
-    
-    Args:
-        image_path: Path to the image file
-        
-    Returns:
-        Extracted text string
-    """
-    # Preprocess image
-    processed_img = preprocess_image(image_path)
-    
-    # Configure Tesseract for better container ID recognition
-    # Use PSM 6 (assume uniform block of text) and whitelist alphanumeric
-    custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    
-    # Run OCR
-    text = pytesseract.image_to_string(processed_img, config=custom_config)
-    
-    return text
+def _normalize_id(raw: str) -> str:
+    """Strip optional space and hyphen → compact 11-char form e.g. MSCU1234567."""
+    return raw.replace(" ", "").replace("-", "")
 
 
-def find_container_ids(text: str) -> List[str]:
-    """
-    Extract container IDs from text using regex pattern.
-    Container ID format: 4 uppercase letters + 7 digits (e.g., ABCD1234567)
-    
-    Args:
-        text: Text string to search
-        
-    Returns:
-        List of found container ID strings
-    """
-    # Pattern: 4 uppercase letters followed by 7 digits
-    pattern = r'[A-Z]{4}\d{7}'
-    
-    # Find all matches
-    matches = re.findall(pattern, text)
-    
-    # Remove duplicates while preserving order
-    seen = set()
-    unique_matches = []
-    for match in matches:
-        if match not in seen:
-            seen.add(match)
-            unique_matches.append(match)
-    
-    return unique_matches
+# ---------------------------------------------------------------------------
+# ContainerOCREngine class
+# ---------------------------------------------------------------------------
 
+class ContainerOCREngine:
+    """
+    End-to-end pipeline: file → preprocessed image → OCR text → container ID.
 
-def validate_container_id(container_id: str) -> Dict[str, any]:
+    Usage:
+        engine = ContainerOCREngine()
+        result = engine.process(Path("manifest.pdf"))
     """
-    Validate container ID using ISO 6346 check-digit algorithm.
-    
-    Args:
-        container_id: Container ID string (format: ABCD1234567)
-        
-    Returns:
-        Dictionary with validation results:
-        {
-            'valid': bool,
-            'container_id': str,
-            'check_digit': str or None,
-            'error': str or None
-        }
-    """
-    result = {
-        'valid': False,
-        'container_id': container_id,
-        'check_digit': None,
-        'error': None
-    }
-    
-    try:
-        # ISO 6346 validation includes check-digit verification
-        # The last digit is the check digit
-        if len(container_id) == 11:
-            # Extract owner code (first 3 letters), equipment code (4th letter), 
-            # serial number (6 digits), and check digit (last digit)
-            owner_code = container_id[:3]
-            equipment_code = container_id[3]
-            serial_number = container_id[4:10]
-            check_digit = container_id[10]
-            
-            # Validate using python-stdnum
-            # iso6346.validate() checks the check digit
-            iso6346.validate(container_id)
-            
-            result['valid'] = True
-            result['check_digit'] = check_digit
-            
+
+    # Tesseract config: full OEM neural net, assume single column of text of variable sizes
+    # PSM 4 is much better at extracting grid/tabular layouts than PSM 6.
+    _TESS_CONFIG = r"--oem 3 --psm 4"
+
+    def load_file(self, file_path: Path) -> "np.ndarray":
+        """
+        Load a PDF (first page) or an image file into a CV2 BGR array.
+
+        Raises:
+            ImportError: if the required library isn't installed.
+            ValueError:  if the file can't be read.
+        """
+        suffix = file_path.suffix.lower()
+
+        if suffix == ".pdf":
+            if fitz is None:
+                raise ImportError("pymupdf is required for PDF files. Run: pip install pymupdf")
+            doc = fitz.open(str(file_path))
+            page = doc.load_page(0)
+            # Render at 2× DPI (150 dpi default → 300 dpi) for sharper OCR
+            mat = fitz.Matrix(2.0, 2.0)
+            pix = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
+            doc.close()
+            img_array = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
+                pix.height, pix.width, 3
+            )
+            # pymupdf returns RGB; OpenCV expects BGR
+            return cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+
         else:
-            result['error'] = f"Invalid length: expected 11 characters, got {len(container_id)}"
-            
-    except Exception as e:
-        result['error'] = str(e)
-    
-    return result
+            if cv2 is None:
+                raise ImportError("OpenCV is required. Run: pip install opencv-python-headless")
+            img = cv2.imread(str(file_path))
+            if img is None:
+                raise ValueError(f"Could not read image from {file_path}")
+            return img
 
+    def preprocess(self, img: "np.ndarray") -> "np.ndarray":
+        """
+        Convert to grayscale and apply adaptive thresholding.
 
-def process_image(image_path: Path) -> Dict[str, any]:
-    """
-    Main function to process an image and extract/validate container IDs.
-    
-    Args:
-        image_path: Path to the image file
-        
-    Returns:
-        Dictionary with processing results:
-        {
-            'success': bool,
-            'raw_text': str,
-            'container_ids_found': List[str],
-            'validated_ids': List[Dict],
-            'best_match': Dict or None,
-            'error': str or None
+        Adaptive (Gaussian) thresholding handles uneven lighting and shadows
+        on physical documents much better than a single global Otsu threshold.
+        """
+        if cv2 is None:
+            raise ImportError("OpenCV is required for preprocessing.")
+
+        # 1. Grayscale
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # 2. Mild denoise (preserves edges better than blur)
+        denoised = cv2.fastNlMeansDenoising(gray, h=10)
+
+        # 3. Adaptive Gaussian threshold → pure black-on-white
+        thresh = cv2.adaptiveThreshold(
+            denoised,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,
+            blockSize=31,   # neighbourhood size (must be odd)
+            C=15,           # constant subtracted from mean
+        )
+
+        return thresh
+
+    def extract_text(self, preprocessed_img: "np.ndarray") -> str:
+        """Run Tesseract OCR on a preprocessed CV2 image and return raw text."""
+        if pytesseract is None:
+            raise ImportError("pytesseract is required. Run: pip install pytesseract")
+        return pytesseract.image_to_string(preprocessed_img, config=self._TESS_CONFIG)
+
+    def find_container_ids(self, text: str) -> List[str]:
+        """
+        Extract and normalize all container IDs from OCR text.
+
+        Returns:
+            Deduplicated list of 11-char compact IDs (e.g. ['MSCU1234567']).
+        """
+        raw_matches = _CONTAINER_ID_PATTERN.findall(text)
+        seen: set = set()
+        result: List[str] = []
+        for raw in raw_matches:
+            normalized = _normalize_id(raw)
+            if normalized not in seen:
+                seen.add(normalized)
+                result.append(normalized)
+        return result
+
+    def validate(self, container_id: str) -> Dict:
+        """
+        Validate a compact 11-char container ID against ISO 6346 check-digit rules.
+
+        Returns:
+            dict with keys: valid (bool), container_id, check_digit, error.
+        """
+        result = {
+            "valid": False,
+            "container_id": container_id,
+            "check_digit": None,
+            "error": None,
         }
-    """
-    result = {
-        'success': False,
-        'raw_text': '',
-        'container_ids_found': [],
-        'validated_ids': [],
-        'best_match': None,
-        'error': None
-    }
-    
-    try:
-        # Extract text from image
-        raw_text = extract_text(image_path)
-        result['raw_text'] = raw_text
-        
-        # Find container IDs
-        container_ids = find_container_ids(raw_text)
-        result['container_ids_found'] = container_ids
-        
-        if not container_ids:
-            result['error'] = "No container IDs found in image"
+        if len(container_id) != 11:
+            result["error"] = f"Expected 11 chars, got {len(container_id)}"
             return result
-        
-        # Validate each found container ID
-        validated = []
-        for cid in container_ids:
-            validation = validate_container_id(cid)
-            validated.append(validation)
-            
-            # Track the first valid one as best match
-            if validation['valid'] and result['best_match'] is None:
-                result['best_match'] = validation
-        
-        result['validated_ids'] = validated
-        result['success'] = True
-        
-        # If no valid IDs found, set error
-        if result['best_match'] is None:
-            result['error'] = "Found container IDs but none passed ISO 6346 validation"
-            result['success'] = False
-        
-    except Exception as e:
-        result['error'] = str(e)
-    
-    return result
+        try:
+            iso6346.validate(container_id)
+            result["valid"] = True
+            result["check_digit"] = container_id[-1]
+        except Exception as exc:
+            result["error"] = str(exc)
+        return result
+
+    def process(self, file_path: Path) -> Dict:
+        """
+        Full pipeline: load → preprocess → OCR → find IDs → validate.
+
+        Returns:
+            {
+                'success': bool,
+                'raw_text': str,
+                'container_ids_found': List[str],
+                'validated_ids': List[dict],
+                'best_match': dict | None,
+                'error': str | None,
+            }
+        """
+        output = {
+            "success": False,
+            "raw_text": "",
+            "container_ids_found": [],
+            "validated_ids": [],
+            "best_match": None,
+            "error": None,
+        }
+        try:
+            img = self.load_file(file_path)
+            preprocessed = self.preprocess(img)
+            raw_text = self.extract_text(preprocessed)
+            output["raw_text"] = raw_text
+
+            ids = self.find_container_ids(raw_text)
+            output["container_ids_found"] = ids
+
+            if not ids:
+                output["error"] = "No container IDs found in document"
+                return output
+
+            validated = [self.validate(cid) for cid in ids]
+            output["validated_ids"] = validated
+            output["success"] = True
+
+            for v in validated:
+                if v["valid"]:
+                    output["best_match"] = v
+                    break
+
+            if output["best_match"] is None:
+                output["error"] = "IDs found but none passed ISO 6346 check-digit validation"
+                output["success"] = False
+
+        except Exception as exc:
+            output["error"] = str(exc)
+
+        return output
+
+
+# ---------------------------------------------------------------------------
+# Module-level helper — keeps main.py and database.py unchanged
+# ---------------------------------------------------------------------------
+_engine = ContainerOCREngine()
+
+
+def process_image(image_path: Path) -> Dict:
+    """
+    Drop-in replacement for the old module-level process_image().
+    Accepts both PDF and image files.
+    """
+    return _engine.process(image_path)

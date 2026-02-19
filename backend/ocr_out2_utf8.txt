@@ -1,0 +1,34 @@
+﻿============================================================
+Ayahay SmartScan - OCR Engine Test
+============================================================
+File:     C:\Users\gab\Desktop\legendary-octo-goggles\backend\test_pdfs\1771541706\valid_1.pdf
+Type:     .PDF
+------------------------------------------------------------
+
+Raw text (first 400 chars):
+------------------------------------------------------------
+STANDARD FORM 245 (6/77) NO. OF PASSENGERS
+
+ORDERING UNIT Unit-76 LogistifRROJECTNAME Echo PROJECT NO. PRJ-4997
+
+NAME OF CARRIER Apex Freight MODE OF TRANS & ID NO. TRK-702 PILOT ORDRIVER Alice Johnson
+
+CHIEF OF PARTY Capt. Price [REPORT TO: IF DELAYED CONTACT 555-7956
+
+DEPARTURE INTERMEDIATE STOPS DESTINATION
+PLACE ETD PLACE PLACE
+
+Seattle Terminals00 N/A Depot 2
+
+PASSENGER] CARGO DUTY ASSIGNMENT
+------------------------------------------------------------
+
+Container IDs found (1):
+  APHU6196774
+
+Validation results:
+  [INVALID] APHU6196774  (The number's checksum or check digit is invalid.)
+
+============================================================
+NO VALID ID: IDs found but none passed ISO 6346 check-digit validation
+============================================================

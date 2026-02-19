@@ -15,6 +15,9 @@ uploads/
 *.jpeg
 *.png
 
+# Database
+smartscan.db
+
 # IDE
 .vscode/
 .idea/

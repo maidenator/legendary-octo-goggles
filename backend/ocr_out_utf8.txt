@@ -1,0 +1,27 @@
+﻿============================================================
+Ayahay SmartScan - OCR Engine Test
+============================================================
+File:     C:\Users\gab\Desktop\legendary-octo-goggles\backend\test_pdfs\1771541706\valid_1.pdf
+Type:     .PDF
+------------------------------------------------------------
+
+Raw text (first 400 chars):
+------------------------------------------------------------
+STANDARD FORM 245 (6/77) NO. OF PASSENGERS
+PASSENGER AND CARGO MANIFEST |Siinsmsce = [sce ùor ù|
+ORDERING UNIT Unit-76 LogistifRROJECTNAME Echo PROJECT NO. PRI-4997
+NAME OF CARRIER Apex Freight MODE OF TRANS &IDNO. TRK-702 PILOTORDRIVER Alice Johnson
+CHIEF OF PARTY Capt. Price [REPORT TO: IF DELAYED CONTACT 555-7956
+DEPARTURE INTERMEDIATE STOPS DESTINATION
+PLACE PLAGE [ero | era] PLACE,
+Seattle te
+------------------------------------------------------------
+
+Container IDs found (0):
+  [none]
+
+Validation results:
+
+============================================================
+NO VALID ID: No container IDs found in document
+============================================================

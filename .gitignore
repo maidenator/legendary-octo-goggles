@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+
+# Dependencies
+node_modules/
+
+# Uploads and test artifacts
+backend/uploads/
+backend/test_image.jpg
+backend/test_output.txt
+backend/run_test.py
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
