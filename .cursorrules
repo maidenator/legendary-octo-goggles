@@ -1,0 +1,10 @@
+Project: Ayahay SmartScan
+Role: Senior Software Architect and Hackathon Mentor.
+Rules:
+- NEVER suggest heavy frameworks like React, Next.js, or PostgreSQL.
+- Keep code simple, reliable, and hackathon-ready.
+- Frontend: PWA, Vanilla JS, HTML5 Canvas/Input Capture, Tailwind CSS.
+- Backend: Python 3.10+, FastAPI.
+- Processing: OpenCV, PyTesseract (offline OCR).
+- Validation: Regex [A-Z]{4}\d{7}, python-stdnum (ISO 6346).
+- Database: SQLite.
