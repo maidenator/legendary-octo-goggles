@@ -10,11 +10,11 @@ Here is the context of the project:
 
 Here is the Tech Stack we are strictly using:
 
-* **Frontend (Mobile):** Progressive Web App (PWA) using HTML5 `<input capture>`, Vanilla JS (Fetch API, HTML5 Canvas for client-side image compression to 1500px/80% JPEG), and Tailwind CSS.
+* **Frontend:** Progressive Web App (PWA) using HTML5 `<input capture>`, Vanilla JS (Fetch API, HTML5 Canvas for client-side image compression to 1500px/80% JPEG), and Tailwind CSS.
 
-* **Backend (Local Server):** Python 3.10+ with FastAPI.
+* **Backend :** Python 3.10+ with FastAPI.
 
-* **Processing (The Brain):** OpenCV for grayscale/thresholding, and PyTesseract for offline OCR.
+* **Processing:** OpenCV for grayscale/thresholding, and PyTesseract for offline OCR.
 
 * **Validation:** Regex `[A-Z]{4}\d{7}` and the `python-stdnum` library for ISO 6346 check-digit math.
 
@@ -25,13 +25,13 @@ Here is the Tech Stack we are strictly using:
 
 I have broken the project down into 4 modules: 
 
-1. The Phone Scanner (Frontend)
+1. The Phone Scanner
 
-2. The FastAPI Server (Traffic Cop)
+2. The FastAPI Server
 
-3. The OCR Engine (The Brain)
+3. The OCR Engine
 
-4. The Database (Storage)
+4. The Database
 
 
 I need you to help me write the actual code for these modules step-by-step. Keep the code simple, reliable, and hackathon-ready. Do not over-engineer or suggest heavy frameworks like React or PostgreSQL. 

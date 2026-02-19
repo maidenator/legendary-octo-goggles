@@ -128,22 +128,53 @@ function showStatus(message, colorClass) {
     statusMessage.className = `mt-4 text-center text-sm ${colorClass}`;
 }
 
-// Mock submit handler
-sendButton.addEventListener('click', function() {
+// Send to server handler
+sendButton.addEventListener('click', async function() {
     if (!compressedFile) {
         showStatus('No image to send. Please scan first.', 'text-red-600');
         return;
     }
     
-    // Log file size for verification
-    console.log('=== Image Compression Results ===');
-    console.log('Compressed file size:', formatFileSize(compressedFile.size));
-    console.log('File name:', compressedFile.name);
-    console.log('File type:', compressedFile.type);
-    console.log('Dimensions:', `${previewImage.naturalWidth} x ${previewImage.naturalHeight}`);
-    console.log('================================');
+    // Disable button during upload
+    sendButton.disabled = true;
+    sendButton.textContent = 'Sending...';
+    showStatus('Sending image to server...', 'text-blue-600');
     
-    showStatus(`File ready! Size: ${formatFileSize(compressedFile.size)} (check console for details)`, 'text-green-600');
-    
-    // TODO: In Module 2, replace this with actual Fetch API call to FastAPI server
+    try {
+        // Create FormData for file upload
+        const formData = new FormData();
+        formData.append('file', compressedFile);
+        
+        // Get server URL (default to localhost, but can be configured)
+        const serverUrl = window.SERVER_URL || 'http://localhost:8000';
+        
+        // Send to FastAPI server
+        const response = await fetch(`${serverUrl}/scan`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Server error');
+        }
+        
+        const result = await response.json();
+        
+        // Show success
+        showStatus(`Success! Image received by server. Size: ${formatFileSize(result.size_bytes)}`, 'text-green-600');
+        console.log('Server response:', result);
+        
+        // Reset button
+        sendButton.textContent = 'Send to Server';
+        sendButton.disabled = false;
+        
+    } catch (error) {
+        console.error('Upload error:', error);
+        showStatus(`Error: ${error.message}. Make sure the server is running.`, 'text-red-600');
+        
+        // Reset button
+        sendButton.textContent = 'Send to Server';
+        sendButton.disabled = false;
+    }
 });
