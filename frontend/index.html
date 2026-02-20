@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,8 +10,9 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#3b82f6">
 </head>
+
 <body class="bg-gray-50 min-h-screen">
-    <div class="container mx-auto px-4 py-8 max-w-md">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
         <!-- Header -->
         <header class="text-center mb-8">
             <h1 class="text-3xl font-bold text-gray-800 mb-2">Ayahay SmartScan</h1>
@@ -20,21 +22,20 @@
         <!-- Camera Input Section -->
         <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
             <label for="camera-input" class="block">
-                <div class="border-4 border-dashed border-blue-400 rounded-lg p-8 text-center cursor-pointer hover:bg-blue-50 transition-colors">
-                    <svg class="w-16 h-16 mx-auto mb-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <div
+                    class="border-4 border-dashed border-blue-400 rounded-lg p-8 text-center cursor-pointer hover:bg-blue-50 transition-colors">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-blue-500" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z">
+                        </path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     </svg>
                     <p class="text-lg font-semibold text-gray-700 mb-2">Tap to Scan</p>
                     <p class="text-sm text-gray-500">Capture container manifest</p>
                 </div>
-                <input 
-                    type="file" 
-                    id="camera-input" 
-                    accept="image/*" 
-                    capture="environment" 
-                    class="hidden"
-                >
+                <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
             </label>
         </div>
 
@@ -50,18 +51,43 @@
         </div>
 
         <!-- Send Button -->
-        <button 
-            id="send-button" 
+        <button id="send-button"
             class="hidden w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-6 rounded-lg shadow-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            disabled
-        >
+            disabled>
             Send to Server
         </button>
 
         <!-- Status Messages -->
-        <div id="status-message" class="mt-4 text-center text-sm"></div>
+        <div id="status-message" class="mt-4 text-center text-sm font-medium"></div>
+
+        <!-- Scan History Dashboard -->
+        <div id="history-section" class="bg-white rounded-lg shadow-lg overflow-hidden mt-8 hidden">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <h2 class="text-lg font-semibold text-gray-800">Scan History</h2>
+                <p class="text-sm text-gray-500">Recent container IDs extracted from images</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-left text-sm whitespace-nowrap">
+                    <thead class="bg-white border-b border-gray-200">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 font-semibold text-gray-900">Date/Time</th>
+                            <th scope="col" class="px-6 py-3 font-semibold text-gray-900">Filename / Size</th>
+                            <th scope="col" class="px-6 py-3 font-semibold text-gray-900">Extracted ID</th>
+                            <th scope="col" class="px-6 py-3 font-semibold text-gray-900">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table-body" class="divide-y divide-gray-200 bg-white text-gray-700">
+                        <!-- Rows populated by app.js -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="history-loading" class="text-center py-6 text-gray-500 text-sm">
+                Loading database history...
+            </div>
+        </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=3"></script>
 </body>
+
 </html>

@@ -7,9 +7,15 @@ const fileSizeInfo = document.getElementById('file-size-info');
 const sendButton = document.getElementById('send-button');
 const statusMessage = document.getElementById('status-message');
 
+// History Table Elements
+const historySection = document.getElementById('history-section');
+const historyTableBody = document.getElementById('history-table-body');
+const historyLoading = document.getElementById('history-loading');
+
 // Configuration
-const MAX_WIDTH = 1500;
-const JPEG_QUALITY = 0.8;
+const MAX_WIDTH = 2500;
+const JPEG_QUALITY = 0.95;
+const SERVER_URL = window.SERVER_URL || 'http://localhost:8000';
 
 let compressedFile = null;
 let currentObjectUrl = null;  // Track object URL for cleanup
@@ -69,6 +75,10 @@ function compressImage(img, originalFileName) {
     // Set canvas dimensions
     canvas.width = width;
     canvas.height = height;
+
+    // Fill with white background (crucial for transparent PNGs converted to JPEG!)
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, width, height);
 
     // Draw image to canvas
     ctx.drawImage(img, 0, 0, width, height);
@@ -167,13 +177,26 @@ sendButton.addEventListener('click', async function () {
 
         const result = await response.json();
 
-        // Show success
-        showStatus(`Success! Image received by server. Size: ${formatFileSize(result.size_bytes)}`, 'success');
+        // Parse detailed OCR response for status messages
+        const ocr = result.ocr_result;
+        if (ocr && ocr.container_id) {
+            if (ocr.validation_status === 'valid') {
+                showStatus(`Success! Found VALID Container ID: ${ocr.container_id}`, 'success');
+            } else {
+                showStatus(`Warning: Found INVALID check-digit for ID: ${ocr.container_id}`, 'error');
+            }
+        } else {
+            showStatus(`No Container ID could be found in the image.`, 'info');
+        }
+
         console.log('Server response:', result);
 
         // Reset button
         sendButton.textContent = 'Send to Server';
         sendButton.disabled = false;
+
+        // Auto-refresh the scan history table!
+        fetchScanHistory();
 
     } catch (error) {
         console.error('Upload error:', error);
@@ -184,3 +207,81 @@ sendButton.addEventListener('click', async function () {
         sendButton.disabled = false;
     }
 });
+
+// ---------------------------------------------------------------------------
+// Scan History Dashboard Logic
+// ---------------------------------------------------------------------------
+
+function formatTimestamp(isoString) {
+    if (!isoString) return 'Unknown';
+    // The backend saves timestamps like "20260220_074401"
+    // We will parse it simply or fall back to the raw string if parsing fails
+    if (isoString.length === 15 && isoString.includes('_')) {
+        const year = isoString.substring(0, 4);
+        const month = isoString.substring(4, 6);
+        const day = isoString.substring(6, 8);
+        const hour = isoString.substring(9, 11);
+        const min = isoString.substring(11, 13);
+        const sec = isoString.substring(13, 15);
+        return `${year}-${month}-${day} ${hour}:${min}:${sec}`;
+    }
+    return isoString;
+}
+
+function getBadgeHtml(status) {
+    if (status === 'valid') {
+        return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Valid</span>';
+    } else if (status === 'invalid') {
+        return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Invalid</span>';
+    } else {
+        return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Not Found</span>';
+    }
+}
+
+async function fetchScanHistory() {
+    try {
+        historySection.classList.remove('hidden');
+        historyLoading.classList.remove('hidden');
+        historyTableBody.innerHTML = ''; // Clear existing text
+
+        const response = await fetch(`${SERVER_URL}/scans?limit=50`);
+        if (!response.ok) throw new Error('Failed to fetch history');
+
+        const data = await response.json();
+
+        historyLoading.classList.add('hidden');
+
+        if (data.scans.length === 0) {
+            historyTableBody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">No scans found in database.</td></tr>`;
+            return;
+        }
+
+        // Generate rows
+        data.scans.forEach(scan => {
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-gray-50";
+
+            const dateStr = formatTimestamp(scan.timestamp);
+            const sizeStr = formatFileSize(scan.size_bytes);
+            const badge = getBadgeHtml(scan.validation_status);
+            const containerDisplay = scan.container_id ? `<span class="font-mono font-medium">${scan.container_id}</span>` : '<span class="text-gray-400 italic">None</span>';
+
+            tr.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${dateStr}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-l border-gray-100">${scan.filename}<br><span class="text-xs text-gray-500">${sizeStr}</span></td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-l border-gray-100">${containerDisplay}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm border-l border-gray-100">${badge}</td>
+            `;
+
+            historyTableBody.appendChild(tr);
+        });
+
+    } catch (error) {
+        console.error("Error fetching history:", error);
+        historyLoading.classList.add('hidden');
+        historyTableBody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-sm text-red-500">Failed to load database history.</td></tr>`;
+    }
+}
+
+// Load history immediately on page load
+fetchScanHistory();

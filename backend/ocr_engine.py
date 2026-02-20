@@ -18,6 +18,8 @@ from typing import Optional, Dict, List
 try:
     import cv2
     import numpy as np
+    import warnings
+    warnings.filterwarnings("ignore") # Suppress MINGW Numpy warnings on Windows
 except Exception as e:
     warnings.warn(f"OpenCV unavailable: {e}. Install opencv-python-headless.")
     cv2 = None
@@ -58,8 +60,31 @@ _CONTAINER_ID_PATTERN = re.compile(r"[A-Z]{4}\s?\d{6}-?\d")
 
 
 def _normalize_id(raw: str) -> str:
-    """Strip optional space and hyphen → compact 11-char form e.g. MSCU1234567."""
-    return raw.replace(" ", "").replace("-", "")
+    """
+    Clean up and repair common OCR misreadings in container IDs.
+    Shipping container IDs (ISO 6346) are 4 letters + 7 digits.
+    """
+    # Remove all non-alphanumeric noise
+    clean = re.sub(r"[^A-Za-z0-9]", "", raw).upper()
+    
+    if len(clean) != 11:
+        return clean
+
+    # Split into Alpha(4) and Numeric(7)
+    prefix = clean[:4]
+    suffix = clean[4:]
+
+    # Repair prefix: numbers to letters (common OCR errors)
+    # 0 -> O, 1 -> I, 5 -> S, 8 -> B, 2 -> Z
+    repair_map_alpha = {"0": "O", "1": "I", "5": "S", "8": "B", "2": "Z"}
+    prefix = "".join(repair_map_alpha.get(c, c) for c in prefix)
+
+    # Repair suffix: letters to numbers
+    # O -> 0, I -> 1, S -> 5, B -> 8, Z -> 2, G -> 6 (or 9)
+    repair_map_num = {"O": "0", "I": "1", "S": "5", "B": "8", "Z": "2", "G": "6"}
+    suffix = "".join(repair_map_num.get(c, c) for c in suffix)
+
+    return prefix + suffix
 
 
 # ---------------------------------------------------------------------------
@@ -76,8 +101,8 @@ class ContainerOCREngine:
     """
 
     # Tesseract config: full OEM neural net, assume single column of text of variable sizes
-    # PSM 4 is much better at extracting grid/tabular layouts than PSM 6.
-    _TESS_CONFIG = r"--oem 3 --psm 4"
+    # PSM 4 + DPI 300 is optimal for the manifest grid resolution sent by the frontend
+    _TESS_CONFIG = r"--oem 3 --psm 4 --dpi 300"
 
     def load_file(self, file_path: Path) -> "np.ndarray":
         """
@@ -125,18 +150,22 @@ class ContainerOCREngine:
         # 1. Grayscale
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        # 2. Mild denoise (preserves edges better than blur)
-        denoised = cv2.fastNlMeansDenoising(gray, h=10)
+        # 2. Strong edge-preserving denoise (better for OCR than NlMeans)
+        denoised = cv2.bilateralFilter(gray, 9, 75, 75)
 
         # 3. Adaptive Gaussian threshold → pure black-on-white
+        # blockSize 31 is roughly 1-2x the size of characters in high-res images
         thresh = cv2.adaptiveThreshold(
             denoised,
             255,
             cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
             cv2.THRESH_BINARY,
-            blockSize=31,   # neighbourhood size (must be odd)
-            C=15,           # constant subtracted from mean
+            blockSize=31,   
+            C=12,           
         )
+
+        # Save preprocessed image for debugging
+        cv2.imwrite("debug_thresh.png", thresh)
 
         return thresh
 
@@ -148,17 +177,19 @@ class ContainerOCREngine:
 
     def find_container_ids(self, text: str) -> List[str]:
         """
-        Extract and normalize all container IDs from OCR text.
-
-        Returns:
-            Deduplicated list of 11-char compact IDs (e.g. ['MSCU1234567']).
+        Extract and normalize potential container IDs with fuzzy logic.
+        Matches 11-character alphanumeric sequences and applies repairs.
         """
-        raw_matches = _CONTAINER_ID_PATTERN.findall(text)
+        # NO \b word boundaries: IDs are often stuck to table lines like |_MSCU...|
+        # We look for any cluster of 10-12 alphanumeric chars that could be an ID.
+        fuzzy_pattern = re.compile(r"[A-Z0-9]{4,5}\s?[A-Z0-9]{5,7}", re.IGNORECASE)
+        raw_matches = fuzzy_pattern.findall(text)
+        
         seen: set = set()
         result: List[str] = []
         for raw in raw_matches:
             normalized = _normalize_id(raw)
-            if normalized not in seen:
+            if len(normalized) == 11 and normalized not in seen:
                 seen.add(normalized)
                 result.append(normalized)
         return result
@@ -236,6 +267,8 @@ class ContainerOCREngine:
                 output["success"] = False
 
         except Exception as exc:
+            import traceback
+            traceback.print_exc()
             output["error"] = str(exc)
 
         return output

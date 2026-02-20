@@ -96,6 +96,10 @@ async def scan_image(file: UploadFile = File(...)):
         print(f"[INFO] Saved as: {saved_filename}")
         print(f"[INFO] File size: {file_size} bytes ({file_size / 1024:.2f} KB)")
 
+        # Save a debug copy to see exactly what the frontend Javascript is passing us
+        import shutil
+        shutil.copyfile(file_path, UPLOAD_DIR / "debug_received.jpg")
+
         # Module 3 — Process with OCR engine
         print(f"[INFO] Processing image with OCR engine...")
         ocr_result = process_image(file_path)
