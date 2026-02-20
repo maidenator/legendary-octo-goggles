@@ -1,6 +1,6 @@
-# Ayahay SmartScan
+# SmartScan
 
-Ayahay SmartScan is a high-precision OCR engine and web dashboard designed specifically for identifying and validating maritime shipping container IDs (ISO 6346) from camera scans and documents.
+SmartScan is a high-precision OCR engine and web dashboard designed specifically for identifying and validating maritime shipping container IDs (ISO 6346) from camera scans and documents.
 
 [![Tech Stack](https://img.shields.io/badge/Stack-FastAPI%20%7C%20OpenCV%20%7C%20Tesseract-blue)](https://github.com/maidenator/legendary-octo-goggles)
 
