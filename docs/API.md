@@ -1,15 +1,15 @@
-# 🔌 API Reference
+# API Reference
 
-The Ayahay SmartScan backend is powered by **FastAPI**. By default, it runs on `http://localhost:8000`.
+The Ayahay SmartScan backend is powered by FastAPI. By default, it runs on http://localhost:8000.
 
 ## Endpoints
 
 ### 1. Scan Image
 Processes an uploaded image/PDF through the OCR pipeline.
 
-- **URL**: `/scan`
-- **Method**: `POST`
-- **Content-Type**: `multipart/form-data`
+- **URL**: /scan
+- **Method**: POST
+- **Content-Type**: multipart/form-data
 - **Body**: 
   - `file`: The image or PDF file to scan.
 - **Success Response**:
@@ -28,8 +28,8 @@ Processes an uploaded image/PDF through the OCR pipeline.
 ### 2. Get Scan History
 Retrieves the history of all processed scans from the SQLite database.
 
-- **URL**: `/scans`
-- **Method**: `GET`
+- **URL**: /scans
+- **Method**: GET
 - **Parameters**:
   - `limit`: (Optional) Max number of records to return. Default: 100.
 - **JSON Structure**:
@@ -46,4 +46,4 @@ Retrieves the history of all processed scans from the SQLite database.
   ```
 
 ## WebSocket Support
-*(Planned for Future Version)*: Real-time scan updates to connected clients.
+(Planned for Future Version): Real-time scan updates to connected clients.
